@@ -121,7 +121,7 @@ function glocal_networkwide_sites_module($parameters = []) {
         'return' => 'display',
         'numbersites' => 0,
         'exclude_sites' => '1', 
-        'sortby' => 'alpha',
+        'sort_by' => 'alpha',
         'defaultimage' => null,
 		'hide_site_meta' => False,
         'hide_site_image' => False,
@@ -138,6 +138,25 @@ function glocal_networkwide_sites_module($parameters = []) {
 	// CALL GET SITES FUNCTION
 	$sites_list = get_sites_list($settings);
 	
+	// Sorting
+	switch ($sort_by) {
+		case 'newest':
+			$sites_list = sort_array_by_key($sites_list, 'registered', 'DESC');
+		break;
+		
+		case 'updated':
+			$sites_list = sort_array_by_key($sites_list, 'last_updated', 'DESC');
+		break;
+		
+		case 'active':
+			$sites_list = sort_array_by_key($sites_list, 'post_count', 'DESC');
+		break;
+		
+		default:
+			$sites_list = sort_array_by_key($sites_list, 'blogname');
+		
+	}
+		
 	if($return == 'array') {
 		return $sites_list;
 	}
@@ -150,7 +169,6 @@ function glocal_networkwide_sites_module($parameters = []) {
 	}
 	
 }
-
 
 
 // Inputs: uses global variable $styles
@@ -227,7 +245,7 @@ function get_sites_list($options_array) {
             'path' => $site_details->path,  // Put site path into array
             'registered' => $site_details->registered,
             'last_updated' => $site_details->last_updated,
-            'post_count' => $site_details->post_count,
+            'post_count' => intval($site_details->post_count),
 		);
 		
 		
@@ -643,39 +661,6 @@ function render_highlights_html($posts_array, $options_array) {
 
 }
 
-// Input: post excerpt text
-// Output: cleaned up excerpt text
-function custom_post_excerpt($post_id, $length='55', $trailer=' ...') {
-    $the_post = get_post($post_id); //Gets post ID
-
-        $the_excerpt = $the_post->post_content; //Gets post_content to be used as a basis for the excerpt
-        $excerpt_length = $length; //Sets excerpt length by word count
-        $the_excerpt = strip_tags(strip_shortcodes($the_excerpt)); //Strips tags and images
-        $words = explode(' ', $the_excerpt, $excerpt_length + 1);
-
-        if(count($words) > $excerpt_length) :
-            array_pop($words);
-            $trailer = '<a href="' . get_permalink($post_id) . '">' . $trailer . '</a>';
-            array_push($words, $trailer);
-            $the_excerpt = implode(' ', $words);
-        endif;
-
-    return $the_excerpt;
-}
-
-// Input: post_id
-// Output: string of post classes (to be used in markup)
-function get_post_markup_class($post_id) {
-    
-    $post_id = $post_id;
-    
-    $markup_class_array = get_post_class(array('list-item'), (int) $post_id);
-    
-    $post_markup_class = implode(" ", $markup_class_array);
-    
-    return $post_markup_class;
-}
-
 // Input: array of site data and parameters
 // Output: list of sites render as HTML
 function render_sites_list($sites_array, $options_array) {
@@ -791,20 +776,49 @@ function sort_sites_by_most_active($sites_array) {
 	});
 }
 
-// Input: associative array and sort key (e.g. 'post_count')
+// Input: associative array, sort key (e.g. 'post_count') and sort order (e.g. ASC or DESC)
 // Output: array sorted by key
-function sort_array($array, $sort_key) {
+function sort_array_by_key($array, $key, $order='ASC') {
+	$a = $array;
+	$subkey = $key;
 	
-	$array = $array;
-	$key = $sort_key;
+	foreach($a as $k => $v) {
+		$b[$k] = strtolower($v[$subkey]);
+	}
+	if($order == 'DESC') {
+		arsort($b);
+	} else {
+		asort($b);
+	}
 	
-	usort($array, function ($b, $a) {
-		return strcmp($a[$key], $b[$key]);
-	});
+	foreach($b as $key => $val) {
+		$c[] = $a[$key];
+	}
+	return $c;
 }
 
 
 /************* MISC HELPER FUNCTIONS *****************/
+
+// Input: post excerpt text
+// Output: cleaned up excerpt text
+function custom_post_excerpt($post_id, $length='55', $trailer=' ...') {
+    $the_post = get_post($post_id); //Gets post ID
+
+        $the_excerpt = $the_post->post_content; //Gets post_content to be used as a basis for the excerpt
+        $excerpt_length = $length; //Sets excerpt length by word count
+        $the_excerpt = strip_tags(strip_shortcodes($the_excerpt)); //Strips tags and images
+        $words = explode(' ', $the_excerpt, $excerpt_length + 1);
+
+        if(count($words) > $excerpt_length) :
+            array_pop($words);
+            $trailer = '<a href="' . get_permalink($post_id) . '">' . $trailer . '</a>';
+            array_push($words, $trailer);
+            $the_excerpt = implode(' ', $words);
+        endif;
+
+    return $the_excerpt;
+}
 
 // Input: array of posts and max number parameter
 // Output: array of posts reduced to max number
@@ -835,6 +849,19 @@ function get_site_slug($site_path) {
 	}
 	
 	return $slug;
+}
+
+// Input: post_id
+// Output: string of post classes (to be used in markup)
+function get_post_markup_class($post_id) {
+    
+    $post_id = $post_id;
+    
+    $markup_class_array = get_post_class(array('list-item'), (int) $post_id);
+    
+    $post_markup_class = implode(" ", $markup_class_array);
+    
+    return $post_markup_class;
 }
 
 // Input: site_id
